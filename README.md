@@ -10,6 +10,17 @@ It's not a cheat client: Alpha is a launcher and mod manager, and it doesn't add
 2. Download **Alpha Client.pyw** from this repo.
 3. Double-click it. The first launch installs what Alpha needs and adds a desktop shortcut.
 
+## In-game menu (Right Shift)
+
+When you press Play on a Fabric instance, Alpha adds its own mod (from the `mods` folder here). Press **Right Shift** in game for 24 modules and 200 options:
+
+- **HUD:** FPS, CPS, keystrokes, armour, potion effects, coordinates, compass, ping, clock and more. Drag them anywhere with **Edit HUD**.
+- **Visual:** zoom (hold **C**), custom crosshair, camera effects.
+- **Performance:** one-click FPS Boost presets and every video setting in one place.
+- **Utility:** toggle sprint and toggle sneak.
+
+Fair play only: there's nothing that sees through walls, aims, fights or moves for you.
+
 ## Updates
 
 Alpha checks this repo for new versions. When one is out, Alpha shows **"New update ready to download"**. Click **Download update** and Alpha restarts on the new version, keeping your instances, settings and account.
