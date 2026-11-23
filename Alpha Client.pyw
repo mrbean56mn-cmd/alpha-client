@@ -95,7 +95,7 @@ import requests  # noqa: E402
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 import random  # noqa: E402
 
-VERSION = "2.8"  # bump this whenever the master copy changes
+VERSION = "2.9"  # bump this whenever the master copy changes
 # Updates come from GitHub, so every copy of Alpha on every computer sees them.
 GITHUB_REPO = "mrbean56mn-cmd/alpha-client"
 UPDATE_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/Alpha%20Client.pyw"
@@ -353,6 +353,42 @@ def search_projects(query, mc_version, ptype, sort="relevance", offset=0, limit=
 
 def load_meta(gdir):
     return load_json(gdir / "alpha_content.json", {})
+
+
+ALPHA_MOD_INDEX = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/mods/index.json"
+
+
+def ensure_alpha_mod(gdir, mc_version, say=lambda t: None):
+    """Install or update Alpha's in-game mod (the Right Shift menu) for this Minecraft version.
+    The list of builds lives in the GitHub repo (mods/index.json). Returns True when the mod is in place."""
+    try:
+        idx = requests.get(ALPHA_MOD_INDEX, params={"t": int(time.time() // 60)}, headers=HEADERS, timeout=8).json()
+        entry = idx.get(mc_version)
+        if not entry:
+            return False  # no build for this Minecraft version yet
+        mods = Path(gdir) / "mods"
+        mods.mkdir(parents=True, exist_ok=True)
+        target = mods / entry["file"]
+        if target.exists() and hashlib.sha1(target.read_bytes()).hexdigest() == entry["sha1"]:
+            return True
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/mods/" + requests.utils.quote(entry["file"])
+        data = requests.get(url, headers=HEADERS, timeout=60).content
+        if hashlib.sha1(data).hexdigest() != entry["sha1"]:
+            return False  # incomplete download: keep whatever was there
+        for old in mods.glob("alpha-mod-*.jar*"):
+            old.unlink()
+        target.write_bytes(data)
+        if not any(mods.glob("fabric-api-*.jar")):  # the menu needs Fabric API
+            install_project("fabric-api", "mod", mc_version, Path(gdir))
+        with META_LOCK:
+            meta = load_meta(Path(gdir))
+            meta[entry["file"]] = {"title": "Alpha Client (Right Shift menu)", "slug": "", "icon": None, "type": "mod",
+                                   "version": entry.get("version", "")}
+            save_json(Path(gdir) / "alpha_content.json", meta)
+        say(f"Alpha in-game menu {entry.get('version', '')} installed. Press Right Shift in game.")
+        return True
+    except Exception:
+        return False
 
 
 def install_project(project, ptype, mc_version, gdir, loader="fabric", _seen=None):
@@ -4006,6 +4042,9 @@ class Alpha(ctk.CTk):
                         except Exception:
                             pass
                 p["installed"] = True
+            if p["loader"] == "fabric" and self.config_data.get("alpha_mod", True):
+                self.say("Checking the Alpha in-game menu…")
+                ensure_alpha_mod(gdir, p["version"], self.say)
             auth = self.auth
             if not auth.get("offline") and auth.get("refresh") and self.client_id():
                 try:
@@ -4437,6 +4476,9 @@ class Alpha(ctk.CTk):
         self.sh(c, "Launcher behavior")
         self.toggle_row(c, "Minimize when the game starts",
                         "Alpha minimizes to the taskbar while Minecraft is running.", "minimize")
+        self.toggle_row(c, "Alpha in-game menu (Right Shift)",
+                        "Adds Alpha's mod to Fabric instances when you press Play: Right Shift opens HUD, zoom, "
+                        "crosshair and FPS settings. No cheats.", "alpha_mod", True)
         self.toggle_row(c, "Install Alpha Pack by default",
                         "Pre-tick the performance mod pack when creating a Fabric instance.", "default_pack", True)
         self.toggle_row(c, "Custom title bar (Windows, experimental)",
